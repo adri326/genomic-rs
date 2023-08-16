@@ -7,7 +7,6 @@ description = "A small crate for implementing genetical algorithms."
 readme = "README.md"
 repository = "https://github.com/adri326/genomic-rs"
 license = "MIT"
-license-file = "LICENSE"
 keywords = ["genetic", "ga"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
