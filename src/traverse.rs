@@ -15,7 +15,10 @@ impl<R: Rng> Mutator<R> {
 
     /// Instructs the mutation helper to mutate a single chromosome.
     #[inline(always)]
-    pub fn chromosome<'a, Ch: Chromosome>(&'a mut self, chromosome: &mut Ch) -> &'a mut Self {
+    pub fn chromosome<'a, Ch: Chromosome + ?Sized>(
+        &'a mut self,
+        chromosome: &mut Ch,
+    ) -> &'a mut Self {
         chromosome.mutate(self.rate, &mut self.rng);
 
         self
@@ -25,7 +28,7 @@ impl<R: Rng> Mutator<R> {
     /// This is currently equivalent to calling `genome.mutate(helper)`,
     /// but using this method is more idiomatic and future-proof.
     #[inline(always)]
-    pub fn genome<'a, G: Genome>(&'a mut self, genome: &mut G) -> &'a mut Self {
+    pub fn genome<'a, G: Genome + ?Sized>(&'a mut self, genome: &mut G) -> &'a mut Self {
         genome.mutate(self);
 
         self
@@ -33,7 +36,7 @@ impl<R: Rng> Mutator<R> {
 
     /// Instructs the mutation helper to mutate an iterator of sub-genomes.
     #[inline(always)]
-    pub fn iter<'a, 'b, G: Genome + 'b>(
+    pub fn iter<'a, 'b, G: Genome + ?Sized + 'b>(
         &'a mut self,
         genomes: impl IntoIterator<Item = &'b mut G>,
     ) -> &'a mut Self {
@@ -42,7 +45,7 @@ impl<R: Rng> Mutator<R> {
         self
     }
 
-    /// Defines a group of chromosomes that have a lower rate of mutation than the rest.
+    /// Defines a group of chromosomes that have a lower rate of mutation than the other chromosomes.
     #[inline(always)]
     pub fn multiply_rate<'a, 'b, F: for<'c> FnOnce(&'c mut Self) + 'b>(
         &'a mut self,
@@ -62,7 +65,7 @@ impl<R: Rng> Mutator<R> {
     pub fn wrap_ch<'a, W, T>(&'a mut self, mut wrapper: W, value: &'_ mut T) -> &'a mut Self
     where
         T: From<W> + Clone,
-        W: Chromosome
+        W: Chromosome,
     {
         wrapper.mutate(self.rate, &mut self.rng);
 
@@ -71,7 +74,19 @@ impl<R: Rng> Mutator<R> {
         self
     }
 
-    // TODO: a `group()` method
+    /// Lets you define a set of mutations as mutating a single, virtual chromosome.
+    ///
+    /// This method mainly exists as a counterpart of [Crossover::group].
+    /// A call to this method should only account for a value of `1` in [Chromosome::size_hint],
+    /// no matter how many chromosomes and sub-genomes are mutated within the callback.
+    pub fn group<'a, 'b, F: for<'c> FnOnce(&'c mut Self) + 'b>(
+        &'a mut self,
+        callback: F,
+    ) -> &'a mut Self {
+        callback(self);
+
+        self
+    }
 }
 
 /// A helper struct for performing the crossover operation on genomes.
@@ -92,7 +107,6 @@ pub enum CrossoverMethod {
     /// Splits the genome in `k` points (with `k` being passed to this enum variant),
     /// and swaps all of the chromosomes in the even segments, leaving the odd segments as-is.
     KPoint(u64),
-
     // TODO: add more crossover operators
 }
 
@@ -104,6 +118,7 @@ pub(crate) enum CrossoverState {
         swapped: u64,
         desired: u64,
     },
+    Fixed(bool),
 }
 
 impl<R: Rng> Crossover<R> {
@@ -112,20 +127,9 @@ impl<R: Rng> Crossover<R> {
         Self { rng, method }
     }
 
-    /// Instructs the helper to perform its crossover operation on `ch_left` and `ch_right`.
-    /// This is the direct equivalent of [Mutator::chromosome].
-    #[inline(always)]
-    pub fn chromosome<'a, Ch>(
-        &'a mut self,
-        ch_left: &mut Ch,
-        ch_right: &mut Ch,
-    ) -> &'a mut Self {
+    fn should_flip(&mut self) -> bool {
         match self.method {
-            CrossoverState::Uniform(rate) => {
-                if self.rng.gen_bool(rate / 2.0) {
-                    std::mem::swap(ch_left, ch_right);
-                }
-            }
+            CrossoverState::Uniform(rate) => self.rng.gen_bool(rate / 2.0),
             CrossoverState::KPoint {
                 ref mut count,
                 length,
@@ -139,10 +143,18 @@ impl<R: Rng> Crossover<R> {
                     *swapped += 1;
                 }
 
-                if *swapped % 2 == 1 {
-                    std::mem::swap(ch_left, ch_right);
-                }
+                *swapped % 2 == 1
             }
+            CrossoverState::Fixed(res) => res,
+        }
+    }
+
+    /// Instructs the helper to perform its crossover operation on `ch_left` and `ch_right`.
+    /// This is the direct equivalent of [Mutator::chromosome].
+    #[inline(always)]
+    pub fn chromosome<'a, Ch>(&'a mut self, ch_left: &mut Ch, ch_right: &mut Ch) -> &'a mut Self {
+        if self.should_flip() {
+            std::mem::swap(ch_left, ch_right);
         }
 
         self
@@ -152,7 +164,7 @@ impl<R: Rng> Crossover<R> {
     ///
     /// This is the direct equivalent of [Mutator::genome].
     #[inline(always)]
-    pub fn genome<'a, G: Genome>(
+    pub fn genome<'a, G: Genome + ?Sized>(
         &'a mut self,
         genome_left: &mut G,
         genome_right: &mut G,
@@ -166,7 +178,7 @@ impl<R: Rng> Crossover<R> {
     ///
     /// This is the direct equivalent of [Mutator::iter].
     #[inline(always)]
-    pub fn iter<'a, 'b, G: Genome + 'b>(
+    pub fn iter<'a, 'b, G: Genome + ?Sized + 'b>(
         &'a mut self,
         genomes_left: impl IntoIterator<Item = &'b mut G>,
         genomes_right: impl IntoIterator<Item = &'b mut G>,
@@ -175,6 +187,29 @@ impl<R: Rng> Crossover<R> {
             .into_iter()
             .zip(genomes_right.into_iter())
             .for_each(|(item_left, item_right)| item_left.crossover(item_right, self));
+
+        self
+    }
+
+    /// Groups together multiple operations as if it was a single chromosome.
+    ///
+    /// This means that you can define multiple `Chromosome`s as needing to be mutated all together,
+    /// without explicitely bundling them together in your struct.
+    ///
+    /// As with [Mutator::group], a call to this method should account for exactly `1` chromosome in [Chromosome::size_hint],
+    /// no matter how many operations are performed in the callback.
+    pub fn group<'a, 'b, F: for<'c> FnOnce(&'c mut Crossover<&'c mut R>) + 'b>(
+        &'a mut self,
+        callback: F,
+    ) -> &'a mut Self {
+        let should_flip = self.should_flip();
+
+        let mut fixed = Crossover {
+            rng: &mut self.rng,
+            method: CrossoverState::Fixed(should_flip),
+        };
+
+        callback(&mut fixed);
 
         self
     }
@@ -194,8 +229,7 @@ mod test {
 
         impl Genome for MyStruct {
             fn mutate(&mut self, mutator: &mut Mutator<impl Rng>) {
-                mutator
-                    .wrap_ch(UniformCh::new(self.0, -1, 1), &mut self.0);
+                mutator.wrap_ch(UniformCh::new(self.0, -1, 1), &mut self.0);
             }
 
             fn crossover(&mut self, _other: &mut Self, _crossover: &mut Crossover<impl Rng>) {
@@ -218,5 +252,57 @@ mod test {
             assert!(instance.0 <= 1);
         }
         assert_eq!(values.len(), 3);
+    }
+
+    #[test]
+    fn test_group() {
+        struct MyStruct(Vec<i32>);
+
+        impl Genome for MyStruct {
+            fn mutate(&mut self, mutator: &mut Mutator<impl Rng>) {
+                mutator
+                    .group(|m| {
+                        m.genome(&mut self.0[0..2]);
+                    })
+                    .group(|m| {
+                        m.genome(&mut self.0[2..4]);
+                    });
+            }
+
+            fn crossover(&mut self, other: &mut Self, crossover: &mut Crossover<impl Rng>) {
+                crossover
+                    .group(|c| {
+                        c.genome(&mut self.0[0..2], &mut other.0[0..2]);
+                    })
+                    .group(|c| {
+                        c.genome(&mut self.0[2..4], &mut other.0[2..4]);
+                    });
+            }
+
+            fn size_hint(&self) -> usize {
+                2
+            }
+        }
+
+        fn test_with_method(method: CrossoverMethod) {
+            let mut rng = rand::thread_rng();
+            for _ in 0..100 {
+                let mut instance_a = MyStruct(vec![0, 1, 2, 3]);
+                let mut instance_b = MyStruct(vec![4, 5, 6, 7]);
+
+                crate::crossover(&mut instance_a, &mut instance_b, method, &mut rng);
+
+                assert_eq!(instance_a.0[1], instance_a.0[0] + 1);
+                assert_eq!(instance_b.0[1], instance_b.0[0] + 1);
+                assert_eq!(instance_a.0[3], instance_a.0[2] + 1);
+                assert_eq!(instance_b.0[3], instance_b.0[2] + 1);
+                for i in 0..4 {
+                    assert_ne!(instance_a.0[i], instance_b.0[i]);
+                }
+            }
+        }
+
+        test_with_method(CrossoverMethod::Uniform(0.5));
+        test_with_method(CrossoverMethod::KPoint(1));
     }
 }

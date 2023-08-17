@@ -97,6 +97,20 @@ impl<G: Genome> Genome for Vec<G> {
     }
 }
 
+impl<G: Genome> Genome for [G] {
+    fn mutate(&mut self, mutator: &mut Mutator<impl Rng>) {
+        mutator.iter(self.iter_mut());
+    }
+
+    fn crossover(&mut self, other: &mut Self, crossover: &mut Crossover<impl Rng>) {
+        crossover.iter(self.iter_mut(), other.iter_mut());
+    }
+
+    fn size_hint(&self) -> usize {
+        self.iter().map(|item| item.size_hint()).sum()
+    }
+}
+
 macro_rules! impl_genome_tuple {
     ( $( $name:ident => $id:tt ),+ ) => {
         impl<$($name : Genome),+> Genome for ($($name),+) {

@@ -3,15 +3,19 @@
 A small crate to help implement genetical algorithms in Rust.
 
 This crate defines two traits:
-- `Chromosome`s represent a single trainable parameter.
+- `Chromosome` represents a single trainable parameter.
     The `Chromosome` trait is implemented for a few built-in types, and you can implement it on your own.
 - `Genome` represents a set of `Chromosome`s.
+
+A few functions are also provided, notably:
+- `mutate`, to mutate an individual's genome
+- `crossover`, to perform the crossover operation on two individuals
+- `reproduce`, to perform sexuated reproduction on two individuals
 
 Implementing the `Genome` trait is done in a declarative fashion:
 
 ```rust
 use genomic::prelude::*;
-use genomic::mutate;
 use genomic::chromosome::UniformCh;
 
 pub struct Triple {
@@ -41,4 +45,19 @@ impl Genome for Triple {
         3
     }
 }
+
+let mut triple = Triple {
+    first: 0,
+    second: 0,
+    third: 0.0
+};
+
+genomic::mutate(
+    // The genome to mutate
+    &mut triple,
+    // The mutation rate - a value of 1.0 means that the chromosomes will be fully scrambled
+    1.0,
+    // An RNG
+    &mut rand::thread_rng()
+);
 ```

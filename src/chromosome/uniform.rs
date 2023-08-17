@@ -1,11 +1,4 @@
-use rand::{distributions::Distribution, Rng};
-
-pub trait Chromosome {
-    /// Mutates the chromosome, with `rate` being a number between `0.0` and `1.0`.
-    ///
-    /// A `rate` of `1.0` means that the chromosome should take a fully random value.
-    fn mutate(&mut self, rate: f64, rng: &mut impl Rng);
-}
+use super::*;
 
 /// A wrapper type around scalar values, changing their mutation operator from bit swaps
 /// to uniform random walk.
@@ -26,44 +19,8 @@ impl<T> UniformCh<T> {
     }
 }
 
-impl<T> From<(T, (T, T))> for UniformCh<T> {
-    fn from((value, (min, max)): (T, (T, T))) -> Self {
-        Self {
-            value,
-            min,
-            max
-        }
-    }
-}
-
-/// Groups together a genome as if it was a single chromosome
-pub struct GroupCh<'a, T> {
-    wrapped: &'a mut T,
-}
-
-impl<'a, T: crate::Genome> Chromosome for GroupCh<'a, T> {
-    fn mutate(&mut self, rate: f64, rng: &mut impl Rng) {
-        self.wrapped.mutate(&mut crate::Mutator::new(rate, rng));
-    }
-}
-
-macro_rules! impl_ch_int {
+macro_rules! impl_uniform_int {
     ( $type:ty ) => {
-        impl Chromosome for $type {
-            fn mutate(&mut self, rate: f64, rng: &mut impl Rng) {
-                debug_assert!(rate <= 1.0);
-                debug_assert!(rate >= 0.0);
-                let distribution = rand::distributions::Bernoulli::new(rate * 0.5)
-                    .expect("`rate` should be between 0.0 and 1.0");
-
-                for (bit, should_flip) in (0..<$type>::BITS).zip(distribution.sample_iter(rng)) {
-                    if should_flip {
-                        *self ^= 1 << bit;
-                    }
-                }
-            }
-        }
-
         impl Chromosome for UniformCh<$type> {
             fn mutate(&mut self, rate: f64, rng: &mut impl Rng) {
                 let range = self.max - self.min;
@@ -95,7 +52,7 @@ macro_rules! impl_ch_int {
     };
 }
 
-macro_rules! impl_ch_float {
+macro_rules! impl_uniform_float {
     ( $type:ty ) => {
         impl Chromosome for UniformCh<$type> {
             fn mutate(&mut self, rate: f64, rng: &mut impl Rng) {
@@ -126,29 +83,16 @@ macro_rules! impl_ch_float {
     };
 }
 
-impl_ch_int!(u8);
-impl_ch_int!(u16);
-impl_ch_int!(u32);
-impl_ch_int!(u64);
-impl_ch_int!(u128);
-impl_ch_int!(i8);
-impl_ch_int!(i16);
-impl_ch_int!(i32);
-impl_ch_int!(i64);
-impl_ch_int!(i128);
+impl_uniform_int!(u8);
+impl_uniform_int!(u16);
+impl_uniform_int!(u32);
+impl_uniform_int!(u64);
+impl_uniform_int!(u128);
+impl_uniform_int!(i8);
+impl_uniform_int!(i16);
+impl_uniform_int!(i32);
+impl_uniform_int!(i64);
+impl_uniform_int!(i128);
 
-impl_ch_float!(f32);
-impl_ch_float!(f64);
-
-impl Chromosome for () {
-    /// Does nothing
-    fn mutate(&mut self, _rate: f64, _rng: &mut impl Rng) {
-        // noop
-    }
-}
-
-impl<T: Chromosome> Chromosome for Box<T> {
-    fn mutate(&mut self, rate: f64, rng: &mut impl Rng) {
-        self.as_mut().mutate(rate, rng);
-    }
-}
+impl_uniform_float!(f32);
+impl_uniform_float!(f64);
