@@ -10,6 +10,13 @@ use traverse::*;
 pub mod genome;
 use genome::*;
 
+pub mod wrapper;
+
+/// `Rng` is re-exported from `rand` in case you don't want to add `rand` manually as a dependency,
+/// or if there are conflicting versions.
+///
+pub use rand::Rng;
+
 /// A module to quickly import the necessary types for using this library
 pub mod prelude {
     pub use crate::chromosome::Chromosome;
@@ -32,7 +39,7 @@ pub fn mutate<G: Genome>(individual: &mut G, rate: f64, rng: &mut impl rand::Rng
 /// Depending on `method`, different chromosomes between the two individuals will be swapped,
 /// mixing their genetical code.
 ///
-/// The two individuals should have the same amount of chromosomes (as defined by [Chromosome::size_hint]).
+/// The two individuals should have the same amount of chromosomes (as defined by [Genome::size_hint]).
 /// If not, then the crossover operation may yield undesired results.
 #[inline]
 pub fn crossover<G: Genome>(
@@ -60,7 +67,7 @@ pub fn crossover<G: Genome>(
 /// Reproduces two parent individuals,
 /// creating two children with a crossover of the parent's chromosomes and some mutation.
 ///
-/// The two parent should have the same amount of chromosomes (as defined by [Chromosome::size_hint]).
+/// The two parent should have the same amount of chromosomes (as defined by [Genome::size_hint]).
 /// If not, then the crossover operation may yield undesired results.
 ///
 /// Each child is mutated with its own `StdRng`,

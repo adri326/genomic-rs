@@ -1,4 +1,7 @@
-use crate::{Chromosome, Genome};
+use crate::{
+    wrapper::{CrossoverWrapper, MutationWrapper},
+    Chromosome, Genome,
+};
 use rand::Rng;
 
 /// A helper struct for performing the mutation operation on genomes.
@@ -61,7 +64,9 @@ impl<R: Rng> Mutator<R> {
         self
     }
 
-    /// Wraps a chromosome in one of the wrapped types defined in [chromosome.rs]
+    /// Wraps a chromosome in one of the wrapped types defined in [chromosome.rs].
+    /// This is now superceded with [Mutator::with].
+    #[deprecated(note = "use Mutator::with instead")]
     pub fn wrap_ch<'a, W, T>(&'a mut self, mut wrapper: W, value: &'_ mut T) -> &'a mut Self
     where
         T: From<W> + Clone,
@@ -74,10 +79,58 @@ impl<R: Rng> Mutator<R> {
         self
     }
 
+    /// Wraps a value into a genome wrapper, allowing you to specify the behavior of mutation
+    /// without altering the underlying data structure.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use genomic::prelude::*;
+    /// use genomic::wrapper::ReorderGenome;
+    ///
+    /// struct TravellingSalesman {
+    ///     pub order: Vec<u32>,
+    /// }
+    ///
+    /// impl TravellingSalesman {
+    ///     pub fn new(nodes: u32) -> Self {
+    ///         Self {
+    ///             order: (0..nodes).collect()
+    ///         }
+    ///     }
+    /// }
+    ///
+    /// impl Genome for TravellingSalesman {
+    ///     fn mutate(&mut self, mutator: &mut Mutator<impl rand::Rng>) {
+    ///         mutator.with(
+    ///             &mut ReorderGenome::Swap,
+    ///             &mut self.order,
+    ///         );
+    ///     }
+    ///
+    ///     fn crossover(&mut self, other: &mut Self, crossover: &mut Crossover<impl rand::Rng>) {
+    ///         unimplemented!();
+    ///     }
+    ///
+    ///     fn size_hint(&self) -> usize {
+    ///         self.order.len()
+    ///     }
+    /// }
+    /// ```
+    pub fn with<'a, 'b, W, G: 'b>(&'a mut self, wrapper: &mut W, value: G) -> &'a mut Self
+    where
+        W: MutationWrapper<G>,
+    {
+        wrapper.mutate_with(value, self);
+
+        self
+    }
+
+    // TODO: have a group MutationWrapper and deprecate this
     /// Lets you define a set of mutations as mutating a single, virtual chromosome.
     ///
     /// This method mainly exists as a counterpart of [Crossover::group].
-    /// A call to this method should only account for a value of `1` in [Chromosome::size_hint],
+    /// A call to this method should only account for a value of `1` in [Genome::size_hint],
     /// no matter how many chromosomes and sub-genomes are mutated within the callback.
     pub fn group<'a, 'b, F: for<'c> FnOnce(&'c mut Self) + 'b>(
         &'a mut self,
@@ -86,6 +139,16 @@ impl<R: Rng> Mutator<R> {
         callback(self);
 
         self
+    }
+
+    /// Returns the mutation rate. For most genomes, you won't need to use this method.
+    pub fn get_rate(&self) -> f64 {
+        self.rate
+    }
+
+    /// Returns the rng of the mutator. For most genomes, you won't need to use this method.
+    pub fn get_rng(&mut self) -> &mut R {
+        &mut self.rng
     }
 }
 
@@ -174,6 +237,21 @@ impl<R: Rng> Crossover<R> {
         self
     }
 
+    #[inline(always)]
+    pub fn with<'a, 'b, W, G: 'b>(
+        &'a mut self,
+        wrapper: &mut W,
+        genome_left: G,
+        genome_right: G,
+    ) -> &'a mut Self
+    where
+        W: CrossoverWrapper<G> + 'b,
+    {
+        wrapper.crossover_with(genome_left, genome_right, self);
+
+        self
+    }
+
     /// Instructs the helper to perform the crossover operation on a list of sub-genomes.
     ///
     /// This is the direct equivalent of [Mutator::iter].
@@ -196,7 +274,7 @@ impl<R: Rng> Crossover<R> {
     /// This means that you can define multiple `Chromosome`s as needing to be mutated all together,
     /// without explicitely bundling them together in your struct.
     ///
-    /// As with [Mutator::group], a call to this method should account for exactly `1` chromosome in [Chromosome::size_hint],
+    /// As with [Mutator::group], a call to this method should account for exactly `1` chromosome in [Genome::size_hint],
     /// no matter how many operations are performed in the callback.
     pub fn group<'a, 'b, F: for<'c> FnOnce(&'c mut Crossover<&'c mut R>) + 'b>(
         &'a mut self,

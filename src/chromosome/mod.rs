@@ -6,6 +6,9 @@ pub use uniform::*;
 mod fixed;
 pub use fixed::*;
 
+#[cfg(feature = "genetic_algorithms")]
+pub mod ga;
+
 pub trait Chromosome {
     /// Mutates the chromosome, with `rate` being a number between `0.0` and `1.0`.
     ///

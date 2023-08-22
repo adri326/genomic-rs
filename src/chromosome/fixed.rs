@@ -1,9 +1,11 @@
+#![allow(deprecated)]
 use super::*;
 
 /// Wraps a scalar type so that only the `bits` least significant bits are mutated.
 ///
 /// For signed integers, the numbers are interpreted as `bits`-long integers in two's complement representation.
 /// This means that `FixedBits<i8> { value: ..., bits: 7 }` is equivalent to a theoretical `i7` when mutating it.
+#[deprecated]
 pub struct FixedBits<T> {
     pub value: T,
     pub bits: u8,

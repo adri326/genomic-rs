@@ -11,5 +11,10 @@ keywords = ["genetic", "ga"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[features]
+default = ["genetic_algorithms"]
+genetic_algorithms = ["dep:genetic_algorithms"]
+
 [dependencies]
 rand = "0.8.x"
+genetic_algorithms = { version = "0.8.x", optional = true }
