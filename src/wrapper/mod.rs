@@ -3,6 +3,12 @@ use super::*;
 mod reorder;
 pub use reorder::*;
 
+mod uniform;
+pub use uniform::UniformCh;
+
+mod fixed;
+pub use fixed::FixedBits;
+
 /// In some cases, you may want to alter the behavior of the mutation operation,
 /// without having to change the types in your structures.
 ///

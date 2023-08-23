@@ -297,7 +297,7 @@ impl<R: Rng> Crossover<R> {
 mod test {
     use std::collections::HashSet;
 
-    use crate::chromosome::UniformCh;
+    use crate::wrapper::UniformCh;
 
     use super::*;
 
@@ -307,7 +307,7 @@ mod test {
 
         impl Genome for MyStruct {
             fn mutate(&mut self, mutator: &mut Mutator<impl Rng>) {
-                mutator.wrap_ch(UniformCh::new(self.0, -1, 1), &mut self.0);
+                mutator.with(&mut UniformCh::new(-1, 1), &mut self.0);
             }
 
             fn crossover(&mut self, _other: &mut Self, _crossover: &mut Crossover<impl Rng>) {

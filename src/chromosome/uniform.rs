@@ -1,10 +1,14 @@
+#![allow(deprecated)]
 use super::*;
 
 /// A wrapper type around scalar values, changing their mutation operator from bit swaps
 /// to uniform random walk.
 ///
 /// If `rate` is `1.0`, then the mutated value will become any number between `min` and `max`.
+///
+/// **Deprecated:** use [`wrapper::UniformCh`](crate::wrapper::UniformCh) instead
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[deprecated(note = "use wrapper::UniformCh instead")]
 pub struct UniformCh<T> {
     pub value: T,
     pub min: T,

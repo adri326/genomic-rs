@@ -12,6 +12,11 @@ use genome::*;
 
 pub mod wrapper;
 
+/// A module for enabling interoperability with the [genetic_algorithms](https://crates.io/crates/genetic_algorithms) crate,
+/// only available with the `genetic_algorithms` feature flag.
+#[cfg(feature = "genetic_algorithms")]
+pub mod ga;
+
 /// `Rng` is re-exported from `rand` in case you don't want to add `rand` manually as a dependency,
 /// or if there are conflicting versions.
 ///
